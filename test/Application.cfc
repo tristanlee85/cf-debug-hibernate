@@ -40,11 +40,16 @@ component{
 	}
 
 	public boolean function onRequestStart(string targetPage){
-
+		// Hibernate logging utility
+		request.hibernateLogging = createObject("HibernateLogging");
+		
 		// reload application
 		if (structKeyExists(url, "reinit")) {
+			// remove all appenders to this Logger
+			request.hibernateLogging.detachAllRequestAppenders();
+			
 			ormReload();
-			applicationStop();
+			try { applicationStop();} catch (any e) {}
 
 			writeOutput("Application reloaded. <a href='//#cgi.http_host##cgi.script_name#'>Continue...</a>");
 			return false;
@@ -66,7 +71,10 @@ component{
 		if (structKeyExists(url, "debugtime") && val(url.debugtime) > 0) {
 			session.debug.debugUntil = dateAdd("n", val(url.debugtime), now());
 		}
-
+		
+		// Attach an appender to the Hibernate logger for debugging
+		request.hibernateLogging.attachRequestAppender();
+		
 		request.dsn = this.datasource;
 
 		return true;
@@ -80,6 +88,12 @@ component{
 	}
 
 	public void function onRequestEnd(string targetPage) {
+		// get the Hibernate logging appender and remove it from the logger
+		var appender = request.hibernateLogging.getRequestAppender();
+		request.hibernateLogging.detachRequestAppender();
+		
+		// get the logged events
+		appender.getEvents();
 	}
 
 	public void function onSessionStart(){
